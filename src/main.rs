@@ -460,7 +460,10 @@ fn render_text(docs: &[Doc], summary_only: bool) -> String {
                 if let Some(note) = &m.note {
                     out.push_str(&format!("  ({note})"));
                 }
-                out.push_str(&format!("\n    fix: {}\n", deslop::pattern(m.pattern).unwrap().hint));
+                out.push_str(&format!(
+                    "\n    fix: {}\n",
+                    deslop::pattern(m.pattern).unwrap().hint
+                ));
             }
         }
         if docs.iter().any(|d| !d.report.matches.is_empty()) {

@@ -83,7 +83,7 @@ deslop --check --quiet --skip colon-triple docs/ || echo "AI clichés found"
 
 38 detectors: chain patterns (`no X, no Y`, `did not X, did not Y`), stock phrases (`that's the whole point`, `sit with that`, `turns out`), structural tells (echoing sentence skeletons, stacked rhetorical questions, repeated sentence openers, colon into a triple), and the vocabulary and boilerplate catalogued in Wikipedia's [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing). Overlapping hits collapse to one match, and each match is mapped to its containing sentence.
 
-To add a pattern, append an entry to `build_patterns` in `src/lib.rs`, a hint in `hint_for`, and a few cases to the `pattern_cases` test table.
+To add a pattern, append an entry (id, name, description, hint, finder) to `build_patterns` in `src/patterns.rs` and a few cases to the `pattern_cases` test table in `src/lib.rs`. Finder implementations live in `src/finders.rs`, sentence and window logic in `src/report.rs`.
 
 ## Tests
 
