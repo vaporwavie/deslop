@@ -3,6 +3,8 @@ use crate::report::Match;
 use std::sync::LazyLock;
 
 pub const WIKI_GROUP: &str = "Signs of AI writing (Wikipedia)";
+pub const HOUSE_GROUP: &str = "House rules";
+pub const REGISTER_GROUP: &str = "Chat register";
 
 pub struct Pattern {
     pub id: &'static str,
@@ -14,6 +16,10 @@ pub struct Pattern {
 }
 
 impl Pattern {
+    pub fn spans_sentence(&self) -> bool {
+        matches!(self.finder, Finder::Closer { .. })
+    }
+
     pub fn find(&self, text: &str) -> Vec<Match> {
         let mut found = self.finder.find(text);
         for m in &mut found {
@@ -46,8 +52,102 @@ fn build_patterns() -> Vec<Pattern> {
         hint,
         finder,
     };
+    let h = |id, name, description, hint, finder| Pattern {
+        id,
+        group: Some(HOUSE_GROUP),
+        name,
+        description,
+        hint,
+        finder,
+    };
+    let r = |id, name, description, hint, finder| Pattern {
+        id,
+        group: Some(REGISTER_GROUP),
+        name,
+        description,
+        hint,
+        finder,
+    };
     let rx = |s: &str| Finder::Regex(re(s));
     vec![
+        h(
+            "em-dash",
+            "Em dash",
+            "An em dash, a spaced en dash, or a spaced double hyphen joining clauses. Code, quotes and links are exempt.",
+            "Use a comma, a period, or parentheses instead.",
+            rx(r"\x{2014}|(?<=\s)(?:\x{2013}|--)(?=\s)"),
+        ),
+        h(
+            "semicolon",
+            "Semicolon",
+            "A semicolon in prose. A house rule rather than a documented AI tell: skip with --skip semicolon if your style allows them. Code, quotes, links and HTML entities are exempt.",
+            "Start a new sentence, or join the clauses with a comma or parentheses.",
+            rx(r";"),
+        ),
+        r(
+            "fragment-opener",
+            "Fragment verdict opener",
+            "A line that opens on a short, comma-joined fragment passing judgment before any fact lands, with no finite verb: \u{201c}Effective overall, with one line dragging.\u{201d}",
+            "Open with the fact or the next action, in a full sentence.",
+            rx(
+                r"(?m)^(?![-*+#>|]|\d+\.)(?=[A-Z])(?!\w+ed\b|(?i:despite|although|while|when|if|after|before|since|because|with|without|given|once|unless|as)\b)(?![^.!?\n]*\b(?i:is|are|was|were|will|can|could|should|would|have|has|had|do|does|did|I|you|it|we|they|there|here|not|kept|broke|went|ran|made|took|got|saw|built|sent|found|left|held|hit|put|set|cut|read|wrote|threw|fell|came|gave|knew|meant|met|paid|said|stood|told|thought|won|lost|brought|caught|chose|drove|felt|grew|led|let|rose|spent|began|became|sat|struck|understood|woke|ate|drew|flew|froze|hung|lay|rode|sang|shook|shot|slid|spoke|sprang|stole|stuck|swept|swung|taught|tore|wore|bent|bled|bound|bred|dealt|dug|fed|fled|fought|forgot|hid|lent|lit|sank|sought|sold|sped|spun|spread|stung|strode|swore|wept|withdrew|wound|\w+ed)\b)(?=(?:\w+[ \t]+){0,2}\w+,)(?:[^\s.!?\n,]+,?[ \t]+){2,13}[^\s.!?\n,]+(?=\.)",
+            ),
+        ),
+        r(
+            "craft-noun",
+            "Craft nouns",
+            "Workshop vocabulary that sounds like insight and names nothing: seam, texture, the tell, load-bearing, earns its place, sharp edges, heavy lifting, lands well, dragging.",
+            "Name the actual thing the word stands in for.",
+            rx(
+                r"(?i)\b(?:seams?|texture|load-bearing|earns?\s+(?:its|their|the)\s+\w+|the\s+tell|tactile|heavy\s+lifting|sharp\s+edges?|the\s+shape\s+of\s+(?:the|it)|lands?\s+(?:well|flat|cleanly)|drags|dragging)\b(?![ \t]*(?:and|&|-)[ \t]*drop)",
+            ),
+        ),
+        r(
+            "colon-reveal",
+            "Colon reveal",
+            "A short noun phrase, a colon, then a lowercase dramatic reveal that ends the sentence: \u{201c}The best part: it learns.\u{201d} Lines that start with Next action, State, or Step N are labels and are exempt, as are colon lists.",
+            "Write a plain sentence. Keep colons for lists, labels, and quotes.",
+            rx(
+                r"(?m)(?:^|(?<=[.!?][ \t]))(?!(?i:next\s+action|state|step\s+\d|here['\x{2019}]s|here\s+is))[A-Z][^\s.!?:\n]*(?:[ \t]+[^\s.!?:\n]+){1,6}:[ \t]+[a-z][^.!?\n,:;]{3,80}(?=\.)",
+            ),
+        ),
+        r(
+            "aphoristic-closer",
+            "Aphoristic closer",
+            "A short abstract final sentence that buttons the piece whether or not it needed one: a present-tense generalization with no digits, no colon, no pointer back into the text (the, this, it, you, now, still), not an instruction or a status, and at least one sentence before it.",
+            "End on the last concrete point or the next action.",
+            Finder::Closer {
+                min_words: 3,
+                max_words: 16,
+            },
+        ),
+        r(
+            "recap-ending",
+            "Summary-recap opener",
+            "A sentence that opens on \u{201c}In conclusion\u{201d}, \u{201c}In summary\u{201d}, \u{201c}To sum up\u{201d}, \u{201c}Ultimately\u{201d}, \u{201c}Overall\u{201d} or \u{201c}All in all\u{201d}, restating what the reader just read.",
+            "Delete the recap and end on the last concrete point.",
+            rx(
+                r"(?m)(?:^|(?<=[.!?][ \t]))(?:(?:In\s+conclusion|In\s+summary|In\s+short|To\s+summari[sz]e|To\s+sum\s+up|All\s+in\s+all)\b,?|(?:Ultimately|Overall),)",
+            ),
+        ),
+        r(
+            "empty-phrase",
+            "Empty phrases",
+            "Filler that delays the point: \u{201c}at the end of the day\u{201d}, \u{201c}when it comes to\u{201d}, \u{201c}at its core\u{201d}, \u{201c}the reality is\u{201d}, \u{201c}in terms of\u{201d}, \u{201c}in order to\u{201d}, \u{201c}going forward\u{201d}, \u{201c}make no mistake\u{201d}, \u{201c}what most people get wrong\u{201d}.",
+            "Cut the phrase and state the point.",
+            rx(
+                r"(?i)\b(?:at\s+the\s+end\s+of\s+the\s+day|when\s+it\s+comes\s+to|at\s+its\s+core|in\s+today['\x{2019}]s\s+world|in\s+the\s+age\s+of|in\s+the\s+world\s+of|the\s+reality\s+is|the\s+truth\s+is|in\s+terms\s+of|with\s+regard\s+to|in\s+order\s+to|going\s+forward|let['\x{2019}]s\s+dive\s+in|make\s+no\s+mistake|the\s+uncomfortable\s+truth|what\s+most\s+people\s+(?:get\s+wrong|miss)|here['\x{2019}]s\s+what\s+nobody|the\s+part\s+everyone\s+misses|the\s+operative\s+word)\b",
+            ),
+        ),
+        r(
+            "question-isnt",
+            "\u{201c}The question isn\u{2019}t X\u{201d}",
+            "The staged reframe: \u{201c}the question / point / problem / issue / answer / difference isn\u{2019}t X, it\u{2019}s Y\u{201d}.",
+            "State Y directly.",
+            rx(
+                r"(?i)\bthe\s+(?:real\s+)?(?:question|point|problem|issue|answer|difference|goal|trick|hard\s+part)\s+(?:isn['\x{2019}]t|is\s+not|wasn['\x{2019}]t|was\s+not)\b",
+            ),
+        ),
         p(
             "no-chain",
             "\u{201c}No X, no Y\u{201d} chains",
@@ -248,7 +348,7 @@ fn build_patterns() -> Vec<Pattern> {
             "The stage-managed reveal: \u{201c}here\u{2019}s the twist\u{201d}, \u{201c}here\u{2019}s the thing\u{201d}, \u{201c}here\u{2019}s the catch / kicker / rub\u{201d}, \u{201c}here\u{2019}s the first example:\u{201d}.",
             "Delete the announcement and state the point.",
             rx(
-                r"(?i)\bhere(?:['\x{2019}]s|\s+is)\s+(?:the|a|my|one)\s+(?:twist|thing|catch|kicker|rub|problem|first|second|third|next|recent|real|best|worst|surprising|interesting|key|important)\b[\w\s-]{0,20}[:.]",
+                r"(?i)\bhere(?:['\x{2019}]s|\s+is)\s+(?:the|a|my|one)\s+(?:twist|thing|catch|kicker|rub|problem|first|second|third|next|recent|real|best|worst|surprising|interesting|key|important)\b[\w\s-]{0,20}[:.,]",
             ),
         ),
         p(
@@ -279,10 +379,10 @@ fn build_patterns() -> Vec<Pattern> {
         w(
             "ai-vocab",
             "AI vocabulary words",
-            "Words LLMs lean on far more than people do: \u{201c}delve\u{201d}, \u{201c}tapestry\u{201d}, \u{201c}meticulous\u{201d}, \u{201c}pivotal\u{201d}, \u{201c}intricate\u{201d}, \u{201c}interplay\u{201d}, \u{201c}underscore\u{201d}, \u{201c}garner\u{201d}, \u{201c}bolster\u{201d}, \u{201c}vibrant\u{201d}, \u{201c}bustling\u{201d}, \u{201c}multifaceted\u{201d}, \u{201c}seamless\u{201d}, \u{201c}ever-evolving\u{201d}. One hit can be coincidence, several is a tell.",
-            "Replace with a plainer word (look into, detailed, careful, key, complex, smooth).",
+            "Words LLMs lean on far more than people do: \u{201c}delve\u{201d}, \u{201c}tapestry\u{201d}, \u{201c}meticulous\u{201d}, \u{201c}pivotal\u{201d}, \u{201c}intricate\u{201d}, \u{201c}interplay\u{201d}, \u{201c}underscore\u{201d}, \u{201c}garner\u{201d}, \u{201c}bolster\u{201d}, \u{201c}vibrant\u{201d}, \u{201c}bustling\u{201d}, \u{201c}multifaceted\u{201d}, \u{201c}seamless\u{201d}, \u{201c}ever-evolving\u{201d}, \u{201c}leverage\u{201d}, \u{201c}utilize\u{201d}, \u{201c}robust\u{201d}, \u{201c}streamline\u{201d}, \u{201c}empower\u{201d}, \u{201c}transformative\u{201d}, \u{201c}game changer\u{201d}, \u{201c}paradigm shift\u{201d}. One hit can be coincidence, several is a tell.",
+            "Replace with a plainer word (look into, detailed, careful, key, complex, smooth, use, strong).",
             rx(
-                r"(?i)\b(?:delv(?:e|es|ed|ing)|tapestr(?:y|ies)|meticulous(?:ly)?|pivotal|intricate(?:ly)?|intricacies|interplay|underscor(?:e|es|ed|ing)|garner(?:s|ed|ing)?|bolster(?:s|ed|ing)?|vibrant|bustling|multifaceted|seamless(?:ly)?|commendable|ever-evolving)\b",
+                r"(?i)\b(?:delv(?:e|es|ed|ing)|tapestr(?:y|ies)|meticulous(?:ly)?|pivotal|intricate(?:ly)?|intricacies|interplay|underscor(?:e|es|ed|ing)|garner(?:s|ed|ing)?|bolster(?:s|ed|ing)?|vibrant|bustling|multifaceted|seamless(?:ly)?|commendable|ever-evolving|leverag(?:e|es|ed|ing)|utiliz(?:e|es|ed|ing|ation)|foster(?:s|ed|ing)?|facilitat(?:e|es|ed|ing)|empower(?:s|ed|ing|ment)?|streamlin(?:e|es|ed|ing)|robust(?:ly|ness)?|cutting-edge|paradigm\s+shifts?|game[-\s]changers?|realm|beacon|paramount|transformative|elevat(?:e|es|ed|ing)|embark(?:s|ed|ing)?|supercharg(?:e|es|ed|ing)|holistic(?:ally)?|myriad|plethora)\b",
             ),
         ),
         w(
@@ -300,7 +400,7 @@ fn build_patterns() -> Vec<Pattern> {
             "Didactic hedging: \u{201c}it is important to note that\u{201d}, \u{201c}it\u{2019}s worth noting\u{201d}, \u{201c}it should be noted\u{201d}, plus the \u{201c}worth pausing / considering / asking\u{201d} family.",
             "Delete the hedge and state the fact.",
             rx(
-                r"(?i)\bit(?:['\x{2019}]s|\s+(?:is|was))\s+(?:also\s+)?(?:important|worth|crucial|essential|vital)\s+(?:to\s+(?:note|remember|understand|recognize|mention|pause|consider|ask)|noting|mentioning|remembering|pausing|considering|asking)\b(?:\s+that\b)?|\bit\s+should\s+be\s+noted\b",
+                r"(?i)\b(?:it|this|that)(?:['\x{2019}]s|\s+(?:is|was))\s+(?:also\s+)?(?:important|worth|crucial|essential|vital)\s+(?:to\s+(?:note|remember|understand|recognize|mention|pause|consider|ask)|noting|mentioning|remembering|pausing|considering|asking)\b(?:\s+that\b)?|\bit\s+should\s+be\s+noted\b",
             ),
         ),
         w(

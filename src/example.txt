@@ -1,8 +1,8 @@
-We rebuilt the editor from the ground up. No sign-ups, no downloads, no hassle — just paste your text and start writing. Everything runs locally in your browser.
+We rebuilt the editor from the ground up. No sign-ups, no downloads, no hassle, just paste your text and start writing. Everything runs locally in your browser. It loads in a blink — faster than the old one.
 
 The reviewer read the draft twice. Did not flinch, did not blink, did not reach for the red pen. That's the whole review, honestly.
 
-Don't call it a rewrite — call it a rescue. The improvement is real, and it's not subtle. That loss is worth naming. Sit with that for a moment. The gains were modest, but that's not nothing.
+Don't call it a rewrite, call it a rescue. The improvement is real, and it's not subtle. That loss is worth naming. Sit with that for a moment. The gains were modest, but that's not nothing.
 
 You already know the answer, of course. Consistency is the entire game, and the punchline is that nobody wants to hear it. The entire pitch is one sentence long.
 
@@ -18,8 +18,10 @@ I won't pretend the rollout was smooth. It turns out that nobody reads the chang
 
 The launch needed three things: a blog post, a demo video, and a pricing page. Here's the catch: the demo was recorded months earlier. Do I regret shipping it? Do I miss the old importer?
 
-The old importer is dead, and nobody mourned. That's why the export button mattered. The tool died; the data didn't.
+The old importer is dead, and nobody mourned. That's why the export button mattered. The tool died, the data didn't.
 
 Maybe nobody needed the importer. Maybe the shortcut confused people. Maybe the redesign was overdue all along.
 
-This closing paragraph is deliberately ordinary, with no list patterns at all, so nothing here should light up.
+Solid overall, with one rough spot. The parser leans on a seam between the two modules. The best part: it learns. When it comes to speed, the question isn't the parser, it's the renderer; the renderer runs twice. Overall, the release landed on schedule.
+
+This closing paragraph is deliberately ordinary, with no list patterns at all, so nothing here should light up. Good tools outlive their makers.

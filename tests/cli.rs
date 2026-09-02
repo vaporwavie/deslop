@@ -92,3 +92,27 @@ fn list_patterns_includes_hint() {
     let v: serde_json::Value = serde_json::from_str(&first).unwrap();
     assert!(v["hint"].as_str().unwrap().len() > 5);
 }
+
+#[test]
+fn markdown_code_is_masked_and_group_is_emitted() {
+    let out = deslop(&[
+        "--jsonl",
+        "--text",
+        "```\ndelve; robust\n```\nIt works \u{2014} mostly.",
+    ]);
+    let s = stdout(&out);
+    assert_eq!(s.lines().count(), 1, "{s}");
+    let v: serde_json::Value = serde_json::from_str(s.trim()).unwrap();
+    assert_eq!(v["pattern"], "em-dash");
+    assert_eq!(v["group"], "House rules");
+
+    let out = deslop(&[
+        "--check",
+        "--quiet",
+        "--skip",
+        "em-dash",
+        "--text",
+        "It works \u{2014} mostly.",
+    ]);
+    assert_eq!(out.status.code(), Some(0));
+}

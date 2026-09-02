@@ -26,13 +26,19 @@ Inputs:
 
 JSONL fields:
   path, pattern, name, hint, line, col, start, end, text, sentence, version.
-  `count` appears on chain patterns, `note` when the detector has extra context.
-  `version` is the schema version, currently 1. Pin on it.
+  `group` appears on grouped patterns (\"House rules\", \"Chat register\", the
+  Wikipedia set), `count` on chain patterns, `note` when the detector has extra
+  context. `version` is the schema version, currently 1. Pin on it.
+
+Markdown: fenced and inline code, link targets, URLs, blockquotes, HTML
+entities, and YAML frontmatter are masked before matching, so offsets still
+index the original text.
 
 Tuning:
   --skip colon-triple      for technical docs where colon lists are legitimate
+  --skip semicolon         if your style allows semicolons (a house rule, not an AI tell)
   --only ai-vocab,not-just to gate on a subset
-  --list-patterns --json   full catalogue with description and hint per id
+  --list-patterns --json   full catalogue with description, group, and hint per id
 
 Exit codes: 0 ok, 1 matches found with --check, 2 usage or IO error.
 ";
@@ -69,10 +75,12 @@ Examples:
     version,
     about = "Audit prose for LLM clich\u{e9}s and print the findings to stdout.",
     long_about = "Audit prose for LLM clich\u{e9}s and print the findings to stdout.\n\n\
-        Scans the input for 38 known tells (\u{201c}no X, no Y\u{201d} chains, \u{201c}that\u{2019}s the whole point\u{201d}, \
-        \u{201c}delve\u{201d}-class vocabulary, stacked rhetorical questions, echoing sentence skeletons, and the \
-        patterns from Wikipedia\u{2019}s \u{201c}Signs of AI writing\u{201d}). Overlapping hits are resolved to one match \
-        each, and each match is mapped to the sentence that contains it.",
+        Scans the input for known tells (\u{201c}no X, no Y\u{201d} chains, \u{201c}that\u{2019}s the whole point\u{201d}, \
+        \u{201c}delve\u{201d}-class vocabulary, stacked rhetorical questions, echoing sentence skeletons, the \
+        patterns from Wikipedia\u{2019}s \u{201c}Signs of AI writing\u{201d}, chat-register tics, and two house rules: \
+        em dashes and semicolons). Fenced and inline code, link targets, URLs, blockquotes, HTML entities, and \
+        YAML frontmatter are never scanned. \
+        Overlapping hits are resolved to one match each, and each match is mapped to the sentence that contains it.",
     after_help = AFTER_HELP
 )]
 struct Cli {
@@ -149,6 +157,8 @@ struct MatchOut<'a> {
     path: &'a str,
     pattern: &'static str,
     name: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    group: Option<&'static str>,
     hint: &'static str,
     line: usize,
     col: usize,
@@ -394,6 +404,7 @@ fn match_out<'a>(doc: &'a Doc, index: usize, m: &'a Match) -> MatchOut<'a> {
         path: &doc.path,
         pattern: m.pattern,
         name: deslop::pattern(m.pattern).unwrap().name,
+        group: deslop::pattern(m.pattern).unwrap().group,
         hint: deslop::pattern(m.pattern).unwrap().hint,
         line,
         col,

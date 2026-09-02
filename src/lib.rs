@@ -1,9 +1,10 @@
 mod finders;
+mod mask;
 mod patterns;
 mod report;
 mod text;
 
-pub use patterns::{PATTERNS, Pattern, WIKI_GROUP, pattern};
+pub use patterns::{HOUSE_GROUP, PATTERNS, Pattern, REGISTER_GROUP, WIKI_GROUP, pattern};
 pub use report::{
     CONTEXT_WORDS, Match, Region, Report, Window, analyze, build_regions, build_windows,
     collect_matches, count_words, sentence_bounds, snippet,
@@ -27,6 +28,203 @@ mod tests {
     #[test]
     fn pattern_cases() {
         let cases: &[(&str, &str, usize, Option<&[usize]>)] = &[
+            ("em-dash", "It works \u{2014} mostly.", 1, None),
+            ("em-dash", "It works -- mostly.", 1, None),
+            ("em-dash", "It works \u{2013} mostly.", 1, None),
+            ("em-dash", "A pre-release build, run --check now.", 0, None),
+            ("semicolon", "A; b.", 1, None),
+            ("semicolon", "A, b.", 0, None),
+            (
+                "fragment-opener",
+                "Effective overall, with one line dragging.",
+                1,
+                None,
+            ),
+            (
+                "fragment-opener",
+                "Solid overall, with one rough spot.",
+                1,
+                None,
+            ),
+            (
+                "fragment-opener",
+                "The parser is wired in, tests pass.",
+                0,
+                None,
+            ),
+            (
+                "fragment-opener",
+                "Added the parser, then wired the build.",
+                0,
+                None,
+            ),
+            (
+                "fragment-opener",
+                "Despite these challenges, the team kept shipping.",
+                0,
+                None,
+            ),
+            (
+                "fragment-opener",
+                "- Solid overall, with one rough spot.",
+                0,
+                None,
+            ),
+            (
+                "craft-noun",
+                "The seam between the modules does the heavy lifting.",
+                2,
+                None,
+            ),
+            (
+                "craft-noun",
+                "The parser reads as UTF-8 by default.",
+                0,
+                None,
+            ),
+            (
+                "craft-noun",
+                "The worker threads do the work in parallel.",
+                0,
+                None,
+            ),
+            (
+                "fragment-opener",
+                "Great work, the team kept shipping.",
+                0,
+                None,
+            ),
+            (
+                "fragment-opener",
+                "Nice catch, the parser broke on empty input.",
+                0,
+                None,
+            ),
+            (
+                "fragment-opener",
+                "Good news, the build went green.",
+                0,
+                None,
+            ),
+            ("recap-ending", "Overall latency dropped to 40ms.", 0, None),
+            (
+                "recap-ending",
+                "Ultimately consistent stores are fine.",
+                0,
+                None,
+            ),
+            ("aphoristic-closer", "A. B. The cache is warm now.", 0, None),
+            (
+                "aphoristic-closer",
+                "Tests pass. Both files were updated.",
+                0,
+                None,
+            ),
+            (
+                "aphoristic-closer",
+                "Tests pass. Finish by telling the user that all is good.",
+                0,
+                None,
+            ),
+            (
+                "aphoristic-closer",
+                "Tests pass. Simplicity beats cleverness every time.",
+                1,
+                None,
+            ),
+            (
+                "craft-noun",
+                "Drag and drop the file, then drag-and-drop again.",
+                0,
+                None,
+            ),
+            ("craft-noun", "That last line is dragging.", 1, None),
+            ("craft-noun", "A seamless flow.", 0, None),
+            ("colon-reveal", "The best part: it learns.", 1, None),
+            (
+                "colon-reveal",
+                "Next action under two minutes: run the tests.",
+                0,
+                None,
+            ),
+            (
+                "colon-reveal",
+                "The launch needed three things: a blog post, a demo, and a page.",
+                0,
+                None,
+            ),
+            ("colon-reveal", "Note: this works.", 0, None),
+            ("colon-reveal", "State: step done.", 0, None),
+            (
+                "colon-reveal",
+                "Here's the catch: the demo was old.",
+                0,
+                None,
+            ),
+            (
+                "aphoristic-closer",
+                "The build works now. Good tools outlive their makers.",
+                1,
+                None,
+            ),
+            (
+                "aphoristic-closer",
+                "Good tools outlive their makers.",
+                0,
+                None,
+            ),
+            (
+                "aphoristic-closer",
+                "The build works. Run the tests next.",
+                0,
+                None,
+            ),
+            (
+                "aphoristic-closer",
+                "The build works. Nothing to do until CI finishes.",
+                0,
+                None,
+            ),
+            (
+                "aphoristic-closer",
+                "The build works. It fixed 3 bugs.",
+                0,
+                None,
+            ),
+            (
+                "aphoristic-closer",
+                "The build works. State: done.",
+                0,
+                None,
+            ),
+            (
+                "aphoristic-closer",
+                "The build works.\n- Good tools outlive their makers.",
+                0,
+                None,
+            ),
+            ("recap-ending", "Overall, the change is fine.", 1, None),
+            ("recap-ending", "Ship it. In conclusion, ship it.", 1, None),
+            ("recap-ending", "The overall score is fine.", 0, None),
+            ("empty-phrase", "At the end of the day, it works.", 1, None),
+            ("empty-phrase", "In order to run it, type make.", 1, None),
+            ("empty-phrase", "The day ended in order.", 0, None),
+            (
+                "question-isnt",
+                "The question isn't the model, it's the eval.",
+                1,
+                None,
+            ),
+            ("question-isnt", "The question is open.", 0, None),
+            ("ai-vocab", "We leverage a robust pipeline.", 2, None),
+            ("heres-the-twist", "Here's the thing, it works.", 1, None),
+            ("note-that", "This is worth noting.", 1, None),
+            (
+                "ai-vocab",
+                "Robustness matters, the harness stays.",
+                1,
+                None,
+            ),
             (
                 "no-chain",
                 "No sign-ups, no downloads, no hassle \u{2014} just paste and go.",
@@ -867,10 +1065,63 @@ mod tests {
     #[test]
     fn example_trips_every_pattern_once() {
         let report = analyze(EXAMPLE, &all());
-        assert_eq!(report.matches.len(), PATTERNS.len());
         let distinct: HashSet<&str> = report.matches.iter().map(|m| m.pattern).collect();
-        assert_eq!(distinct.len(), PATTERNS.len());
-        assert_eq!(report.regions.len(), PATTERNS.len() - 1);
+        let missing: Vec<&str> = PATTERNS
+            .iter()
+            .map(|p| p.id)
+            .filter(|id| !distinct.contains(id))
+            .collect();
+        assert!(missing.is_empty(), "never tripped: {missing:?}");
+        let extra: Vec<&str> = report
+            .per_pattern
+            .iter()
+            .filter(|(_, n)| **n > 1)
+            .map(|(id, _)| *id)
+            .collect();
+        assert!(extra.is_empty(), "tripped more than once: {extra:?}");
+    }
+
+    #[test]
+    fn closer_never_hides_a_content_match() {
+        let t = "The design is fine. Tapestry of delve is meticulous everywhere.";
+        let report = analyze(t, &all());
+        let ids: Vec<&str> = report.matches.iter().map(|m| m.pattern).collect();
+        assert_eq!(
+            ids,
+            vec!["aphoristic-closer", "ai-vocab", "ai-vocab", "ai-vocab"],
+            "{ids:?}"
+        );
+    }
+
+    #[test]
+    fn sentence_bounds_ignore_dots_inside_masked_spans() {
+        let t = "A. See [x](https://en.wikipedia.org/wiki/Foo_(bar)) and delve here. B.";
+        let report = analyze(t, &all());
+        let r = &report.regions[0];
+        assert_eq!(
+            &t[r.start..r.end],
+            "See [x](https://en.wikipedia.org/wiki/Foo_(bar)) and delve here."
+        );
+    }
+
+    #[test]
+    fn markdown_spans_are_never_matched() {
+        let t = "```js\n// we delve into it; robust\n```\nTurns out it works. Run `a; b` now. See [docs](https://x.com/a;b).\n> No fluff, no filler.\n";
+        let report = analyze(t, &all());
+        let ids: Vec<&str> = report.matches.iter().map(|m| m.pattern).collect();
+        assert_eq!(ids, vec!["turns-out"], "{ids:?}");
+        let m = &report.matches[0];
+        assert_eq!(t[m.start..m.end].trim(), "Turns out");
+        let r = &report.regions[0];
+        assert_eq!(&t[r.start..r.end], "Turns out it works.");
+    }
+
+    #[test]
+    fn house_rules_survive_overlap() {
+        let t = "Don't call it a rewrite \u{2014} call it a rescue; fine.";
+        let report = analyze(t, &all());
+        let ids: Vec<&str> = report.matches.iter().map(|m| m.pattern).collect();
+        assert_eq!(ids, vec!["dont-verb-it", "em-dash", "semicolon"], "{ids:?}");
     }
 
     #[test]

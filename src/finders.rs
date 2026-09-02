@@ -1,4 +1,4 @@
-use crate::report::Match;
+use crate::report::{Match, sentence_bounds};
 use crate::text::{trim_end_ws, trim_start_ws};
 use fancy_regex::Regex;
 use regex::Regex as PlainRegex;
@@ -22,6 +22,10 @@ pub(crate) enum Finder {
     Anaphora {
         min_run: usize,
     },
+    Closer {
+        min_words: usize,
+        max_words: usize,
+    },
 }
 
 impl Finder {
@@ -38,8 +42,70 @@ impl Finder {
             Finder::Echo { min_gram, min_run } => find_echoes(text, *min_gram, *min_run),
             Finder::Questions { min_run } => find_question_chains(text, *min_run),
             Finder::Anaphora { min_run } => find_anaphora(text, *min_run),
+            Finder::Closer {
+                min_words,
+                max_words,
+            } => find_closer(text, *min_words, *max_words),
         }
     }
+}
+
+// Sentence starters that mark a concrete instruction or status, not a kicker.
+const CLOSER_STARTERS: &[&str] = &[
+    "run", "next", "try", "see", "check", "open", "add", "remove", "use", "ship", "commit", "read",
+    "want", "say", "tell", "pick", "start", "stop", "call", "let", "ask", "nothing", "no", "none",
+    "waiting", "done", "blocked", "state", "step", "then", "now",
+];
+
+// Words that tie a sentence to the text before it or to a moment in time. An
+// aphorism has none of them: it is a timeless generalization.
+const CLOSER_ANCHORS: &[&str] = &[
+    "the", "this", "that", "these", "those", "it", "its", "i", "we", "our", "you", "your", "now",
+    "still", "yet", "already", "today", "here", "there", "was", "were", "had", "did", "been",
+];
+
+// The document's final sentence when it is short, abstract, and not an
+// instruction: no digits, no colon, no anchor word, not a list item, and at
+// least one sentence before it.
+fn find_closer(text: &str, min_words: usize, max_words: usize) -> Vec<Match> {
+    let end = trim_end_ws(text, 0, text.len());
+    if end == 0 || !text[..end].ends_with('.') {
+        return Vec::new();
+    }
+    let (start, _) = sentence_bounds(text, end - 1, end);
+    let sentence = &text[start..end];
+    let words = sentence.split_whitespace().count();
+    if words < min_words || words > max_words {
+        return Vec::new();
+    }
+    if sentence.chars().any(|c| c.is_ascii_digit()) || sentence.contains(':') {
+        return Vec::new();
+    }
+    let first = sentence.split_whitespace().next().unwrap_or("");
+    let list_item = matches!(first, "-" | "*" | "+" | "#" | "|" | ">")
+        || first.chars().all(|c| c.is_ascii_digit() || c == '.');
+    if list_item {
+        return Vec::new();
+    }
+    let word = first
+        .trim_matches(|c: char| !c.is_alphanumeric())
+        .to_lowercase();
+    if CLOSER_STARTERS.contains(&word.as_str()) {
+        return Vec::new();
+    }
+    let anchored = sentence.split_whitespace().any(|w| {
+        let w = w
+            .trim_matches(|c: char| !c.is_alphanumeric())
+            .to_lowercase();
+        CLOSER_ANCHORS.contains(&w.as_str()) || (w.len() > 3 && w.ends_with("ed"))
+    });
+    if anchored {
+        return Vec::new();
+    }
+    if !text[..start].contains(['.', '!', '?']) {
+        return Vec::new();
+    }
+    vec![Match::plain(start, end - 1)]
 }
 
 pub(crate) fn re(pattern: &str) -> Regex {
