@@ -1,4 +1,5 @@
-use crate::patterns::PATTERNS;
+use crate::mask::mask_markdown;
+use crate::patterns::{HOUSE_GROUP, PATTERNS};
 use crate::text::{char_at, char_before, trim_start_ws};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -70,21 +71,38 @@ pub fn collect_matches(
 ) -> (Vec<Match>, HashMap<&'static str, usize>) {
     let mut per_pattern = HashMap::new();
     let mut raw = Vec::new();
+    let mut house = Vec::new();
     for p in PATTERNS.iter() {
         per_pattern.insert(p.id, 0);
         if !enabled.contains(p.id) {
             continue;
         }
-        raw.extend(p.find(text));
+        if p.group == Some(HOUSE_GROUP) || p.spans_sentence() {
+            house.extend(p.find(text));
+        } else {
+            raw.extend(p.find(text));
+        }
     }
     raw.sort_by(|a, b| a.start.cmp(&b.start).then(b.end.cmp(&a.end)));
     let mut matches: Vec<Match> = Vec::new();
     for m in raw {
-        if matches.last().is_some_and(|last| m.start < last.end) {
+        if matches.last().is_some_and(|last| {
+            m.start < last.end
+                && !matches!(
+                    (last.pattern, m.pattern),
+                    ("sentence-anaphora", "not-but") | ("not-but", "sentence-anaphora")
+                )
+        }) {
             continue;
         }
-        *per_pattern.get_mut(m.pattern).unwrap() += 1;
         matches.push(m);
+    }
+    // House rules are single characters inside other matches and the closer is
+    // a whole sentence around them; neither loses to overlap nor hides a match.
+    matches.extend(house);
+    matches.sort_by(|a, b| a.start.cmp(&b.start).then(b.end.cmp(&a.end)));
+    for m in &matches {
+        *per_pattern.get_mut(m.pattern).unwrap() += 1;
     }
     (matches, per_pattern)
 }
@@ -92,7 +110,7 @@ pub fn collect_matches(
 pub fn build_regions(text: &str, matches: &[Match]) -> Vec<Region> {
     let mut regions: Vec<Region> = Vec::new();
     for (i, m) in matches.iter().enumerate() {
-        let (s, e) = sentence_bounds(text, m.start, m.end);
+        let (s, e) = sentence_bounds(text, trim_start_ws(text, m.start, m.end), m.end);
         match regions.last_mut() {
             Some(last) if s <= last.end => {
                 last.end = last.end.max(e);
@@ -109,8 +127,9 @@ pub fn build_regions(text: &str, matches: &[Match]) -> Vec<Region> {
 }
 
 pub fn analyze(text: &str, enabled: &HashSet<&str>) -> Report {
-    let (matches, per_pattern) = collect_matches(text, enabled);
-    let regions = build_regions(text, &matches);
+    let masked = mask_markdown(text);
+    let (matches, per_pattern) = collect_matches(&masked, enabled);
+    let regions = build_regions(&masked, &matches);
     Report {
         matches,
         per_pattern,

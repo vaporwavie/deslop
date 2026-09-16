@@ -81,9 +81,13 @@ deslop --check --quiet --skip colon-triple docs/ || echo "AI clichés found"
 
 ## Patterns
 
-38 detectors: chain patterns (`no X, no Y`, `did not X, did not Y`), stock phrases (`that's the whole point`, `sit with that`, `turns out`), structural tells (echoing sentence skeletons, stacked rhetorical questions, repeated sentence openers, colon into a triple), and the vocabulary and boilerplate catalogued in Wikipedia's [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing). Overlapping hits collapse to one match, and each match is mapped to its containing sentence.
+48 detectors in four sets. The original 38 from Simon Willison's page plus `not-but` from [upstream commit a48d992](https://github.com/simonw/tools/commit/a48d9920ff1cf203cd0070c3e8321283df50bf11) cover chain patterns (`no X, no Y`, `did not X, did not Y`), stock phrases (`that's the whole point`, `sit with that`, `turns out`), structural tells (echoing sentence skeletons, stacked rhetorical questions, repeated sentence openers, colon into a triple), and the vocabulary and boilerplate catalogued in Wikipedia's [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing). Two house rules (`em-dash`, `semicolon`) that flag on their own and never lose to an overlapping match. Seven chat-register tics that coding agents fall into (`fragment-opener`, `craft-noun`, `colon-reveal`, `aphoristic-closer`, `recap-ending`, `empty-phrase`, `question-isnt`). The `group` field in JSON output names the set.
 
-To add a pattern, append an entry (id, name, description, hint, finder) to `build_patterns` in `src/patterns.rs` and a few cases to the `pattern_cases` test table in `src/lib.rs`. Finder implementations live in `src/finders.rs`, sentence and window logic in `src/report.rs`.
+The `not-but` detector catches plain negative contrasts and split-sentence contrasts. The `not-just` detector handles intensified variants. Overlapping hits collapse to one match, except that `sentence-anaphora` and `not-but` can overlap, and house rules and `aphoristic-closer` survive overlaps independently. Each match is mapped to its containing sentence or sentences.
+
+Markdown is masked before matching: fenced and inline code, link targets, bare URLs, blockquotes, HTML entities, and YAML frontmatter never trip a pattern, and offsets still index the original text. `--skip semicolon` if your style allows semicolons, `--skip colon-triple` for technical docs.
+
+To add a pattern, append an entry (id, name, description, hint, finder) to `build_patterns` in `src/patterns.rs`, a few cases to the `pattern_cases` test table in `src/lib.rs`, and one sentence that trips it to `src/example.txt`. Finder implementations live in `src/finders.rs`, masking in `src/mask.rs`, sentence and window logic in `src/report.rs`.
 
 ## Tests
 
@@ -91,7 +95,7 @@ To add a pattern, append an entry (id, name, description, hint, finder) to `buil
 cargo test
 ```
 
-The self-tests from the original page are ported as-is: 190 per-pattern cases plus sentence-bound, context-window, and example-text checks. `tests/cli.rs` covers directory walking, `--text`, hints, `--quiet`, and the JSON schema version.
+The self-tests from the original page are ported as-is, plus cases for the house and register sets, masking, sentence-bound, context-window, and example-text checks. `tests/cli.rs` covers directory walking, `--text`, hints, `--quiet`, and the JSON schema version.
 
 ## Contributing
 
