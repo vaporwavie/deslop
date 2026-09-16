@@ -395,6 +395,15 @@ fn build_patterns() -> Vec<Pattern> {
             ),
         ),
         w(
+            "not-but",
+            "\u{201c}Not X, but Y\u{201d}",
+            "Plain negative parallelism: \u{201c}not X, but Y\u{201d}, including the split-sentence \u{201c}isn\u{2019}t X. It\u{2019}s Y\u{201d} form. The intensified \u{201c}not just / only\u{201d} variants have their own pattern.",
+            "State the second half of the contrast directly.",
+            rx(
+                r"(?i)\bnot\s+(?!(?:just|only|merely|simply)\b)[^.!?\n;]{1,100}?\bbut\b|\b(?:isn['\x{2019}]t|is not)\s+[^.!?\n]{1,80}[.!?]\s*(?:it['\x{2019}]s|it is|this['\x{2019}]s|this is|that['\x{2019}]s|that is)\b",
+            ),
+        ),
+        w(
             "note-that",
             "\u{201c}It\u{2019}s important to note\u{201d}",
             "Didactic hedging: \u{201c}it is important to note that\u{201d}, \u{201c}it\u{2019}s worth noting\u{201d}, \u{201c}it should be noted\u{201d}, plus the \u{201c}worth pausing / considering / asking\u{201d} family.",

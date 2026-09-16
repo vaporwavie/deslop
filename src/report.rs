@@ -86,7 +86,13 @@ pub fn collect_matches(
     raw.sort_by(|a, b| a.start.cmp(&b.start).then(b.end.cmp(&a.end)));
     let mut matches: Vec<Match> = Vec::new();
     for m in raw {
-        if matches.last().is_some_and(|last| m.start < last.end) {
+        if matches.last().is_some_and(|last| {
+            m.start < last.end
+                && !matches!(
+                    (last.pattern, m.pattern),
+                    ("sentence-anaphora", "not-but") | ("not-but", "sentence-anaphora")
+                )
+        }) {
             continue;
         }
         matches.push(m);

@@ -60,6 +60,26 @@ fn inline_text_carries_hint_and_version() {
 }
 
 #[test]
+fn not_but_reports_split_sentences_with_original_byte_offsets() {
+    let text = "`not a tool, but a philosophy`\nThe empty state isn’t filler. It’s orientation.";
+    let out = deslop(&["--jsonl", "--check", "--only", "not-but", "--text", text]);
+    assert_eq!(out.status.code(), Some(1));
+    let v: serde_json::Value = serde_json::from_str(stdout(&out).trim()).unwrap();
+    assert_eq!(v["pattern"], "not-but");
+    assert_eq!(
+        v["sentence"],
+        "The empty state isn’t filler. It’s orientation."
+    );
+    assert_eq!(v["text"], "isn’t filler. It’s");
+    let start = v["start"].as_u64().unwrap() as usize;
+    let end = v["end"].as_u64().unwrap() as usize;
+    assert_eq!(&text[start..end], "isn’t filler. It’s");
+    assert_eq!(v["line"], 2);
+    assert_eq!(v["col"], 17);
+    assert_eq!(v["hint"], "State the second half of the contrast directly.");
+}
+
+#[test]
 fn text_output_shows_fix_line() {
     let out = deslop(&["--text", "Turns out it works."]);
     let s = stdout(&out);

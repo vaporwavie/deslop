@@ -10,6 +10,8 @@ In this guide we delve into the redesign. It is important to note that the rollo
 
 The studio is nestled in a converted warehouse. The finished space is not just an office, but a small museum. Visitors keep coming back, reflecting the appeal of the collection. The steady attendance is a testament to the curators.
 
+The empty state isn’t filler. It’s orientation.
+
 Despite these challenges, the team kept shipping. They adapted to an ever-evolving landscape. As of my last update, the pricing page still said “coming soon”.
 
 The parser is a tiny state machine. The renderer is a tiny state machine.

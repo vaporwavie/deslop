@@ -790,6 +790,29 @@ mod tests {
             ),
             ("not-just", "He did not buy it.", 0, None),
             ("not-just", "She was not sure about the plan.", 0, None),
+            ("not-but", "This is not a tool, but a philosophy.", 1, None),
+            (
+                "not-but",
+                "The empty state isn’t filler. It’s orientation.",
+                1,
+                None,
+            ),
+            (
+                "not-but",
+                "It is not merely useful, but essential.",
+                0,
+                None,
+            ),
+            ("not-but", "He did not buy it.", 0, None),
+            ("not-but", "She was not sure about the plan.", 0, None),
+            ("not-but", "Not just fast, but reliable.", 0, None),
+            ("not-but", "Not only fast but also reliable.", 0, None),
+            ("not-but", "Not simply fast, but reliable.", 0, None),
+            ("not-but", "It isn't filler. It's orientation.", 1, None),
+            ("not-but", "It is not filler. This is orientation.", 1, None),
+            ("not-but", "It isn't filler! That is orientation.", 1, None),
+            ("not-but", "Not filler. But orientation.", 0, None),
+            ("not-but", "Not filler\nbut orientation.", 0, None),
             (
                 "note-that",
                 "It is important to note that timing matters.",
@@ -1009,6 +1032,31 @@ mod tests {
             }
         }
         assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
+    fn repeated_openers_survive_overlapping_not_but_matches() {
+        let t = "Maybe not speed, but clarity. Maybe not scale, but simplicity. Maybe not polish, but utility.";
+        let (matches, counts) =
+            collect_matches(t, &HashSet::from(["sentence-anaphora", "not-but"]));
+        assert_eq!(matches.len(), 4);
+        assert_eq!(counts["sentence-anaphora"], 1);
+        assert_eq!(counts["not-but"], 3);
+        assert_eq!(matches[0].pattern, "sentence-anaphora");
+        let phrases: Vec<&str> = matches[1..].iter().map(|m| &t[m.start..m.end]).collect();
+        assert_eq!(
+            phrases,
+            ["not speed, but", "not scale, but", "not polish, but"]
+        );
+    }
+
+    #[test]
+    fn not_but_still_suppresses_other_overlapping_phrases() {
+        let t = "This is not a vibrant tapestry, but a diagram.";
+        let (matches, counts) = collect_matches(t, &HashSet::from(["not-but", "ai-vocab"]));
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].pattern, "not-but");
+        assert_eq!(counts["ai-vocab"], 0);
     }
 
     #[test]
